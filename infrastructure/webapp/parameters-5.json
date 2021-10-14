@@ -1,0 +1,39 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "subscriptionId": {
+            "value": "49cc2ac6-1fec-4efe-b23c-9a06cef92ce7"
+        },
+        "name": {
+            "value": "spaceshop-webapp5"
+        },
+        "location": {
+            "value": "West Europe"
+        },
+        "hostingPlanName": {
+            "value": "spaceshop-asp"
+        },
+        "serverFarmResourceGroup": {
+            "value": "spaceshop-rg"
+        },
+        "alwaysOn": {
+            "value": true
+        },
+        "linuxFxVersion": {
+            "value": "DOCKER|mcr.microsoft.com/appsvc/staticsite:latest"
+        },
+        "dockerRegistryUrl": {
+            "value": "https://mcr.microsoft.com"
+        },
+        "dockerRegistryUsername": {
+            "value": ""
+        },
+        "dockerRegistryPassword": {
+            "value": ""
+        },
+        "dockerRegistryStartupCommand": {
+            "value": ""
+        }
+    }
+}
