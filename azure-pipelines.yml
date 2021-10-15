@@ -1,0 +1,108 @@
+# Azure Pipeline to build a Docker image and deploy it to Azure Web Apps
+
+trigger:
+- master #Any change (Push/Pull Request) on the master branch will trigger the pipeline.
+
+resources:
+- repo: self #The repository from the Azure DevOps project will be used. 
+
+variables:
+  tag: '$(Build.BuildId)'
+  targetresourcegroup: 'spaceshop-rg'
+
+stages:
+- stage: Build
+  displayName: Build Docker image
+  jobs:  
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Docker@2
+      inputs:
+        containerRegistry: 'DockerHub' #Note that this specifies the Docker Hub Service Connection.
+        repository: 'provisioned/tenantchecker' #Note that this specifies the Docker Hub repository we'll be pushing to. 
+        command: 'buildAndPush'
+        Dockerfile: '**/Dockerfile' #Use the Dockerfile from the repo. 
+        tags: '$(tag)' #Use the variable as tag.
+
+
+- stage: ResourceGroup
+  displayName: Create a Resource Group.
+  jobs:
+    - job: Infrastructure
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: AzureResourceManagerTemplateDeployment@3
+          inputs:
+            deploymentScope: 'Subscription'
+            azureResourceManagerConnection: 'Azure'
+            subscriptionId: '49cc2ac6-1fec-4efe-b23c-9a06cef92ce7'
+            action: 'Create Or Update Resource Group'
+            location: 'West Europe'
+            templateLocation: 'URL of the file'
+            csmFileLink: 'https://raw.githubusercontent.com/weijenbergm/az400businesscasedemo/main/infrastructure/rg/template.json'
+            csmParametersFileLink: 'https://raw.githubusercontent.com/weijenbergm/az400businesscasedemo/main/infrastructure/rg/parameters.json'
+            deploymentMode: 'Incremental'
+
+- stage: AppServicePlan
+  dependsOn: ResourceGroup
+  displayName: Create an Azure App Service Plan
+  jobs:
+    - job: Infrastructure
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: AzureResourceManagerTemplateDeployment@3
+          inputs:
+            deploymentScope: 'Resource Group'
+            azureResourceManagerConnection: 'Azure'
+            subscriptionId: '49cc2ac6-1fec-4efe-b23c-9a06cef92ce7'
+            action: 'Create Or Update Resource Group'
+            resourceGroupName: 'spaceshop-rg'
+            location: 'West Europe'
+            templateLocation: 'URL of the file'
+            csmFileLink: 'https://raw.githubusercontent.com/weijenbergm/az400businesscasedemo/main/infrastructure/asp/template.json'
+            csmParametersFileLink: 'https://raw.githubusercontent.com/weijenbergm/az400businesscasedemo/main/infrastructure/asp/parameters.json'
+            deploymentMode: 'Incremental'
+
+- stage: WebApp
+  dependsOn: AppServicePlan
+  displayName: Create an Azure Web App
+  jobs:
+    - job: Infrastructure
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: AzureResourceManagerTemplateDeployment@3
+          inputs:
+            deploymentScope: 'Resource Group'
+            azureResourceManagerConnection: 'Azure'
+            subscriptionId: '49cc2ac6-1fec-4efe-b23c-9a06cef92ce7'
+            action: 'Create Or Update Resource Group'
+            resourceGroupName: 'spaceshop-rg'
+            location: 'West Europe'
+            templateLocation: 'URL of the file'
+            csmFileLink: 'https://raw.githubusercontent.com/weijenbergm/az400businesscasedemo/main/infrastructure/webapp/template.json'
+            csmParametersFileLink: 'https://raw.githubusercontent.com/weijenbergm/az400businesscasedemo/main/infrastructure/webapp/parameters.json'
+            deploymentMode: 'Incremental'
+
+- stage: Deploy
+  dependsOn: WebApp
+  displayName: Deploy Docker image to Azure Web App
+  jobs:
+    - job: Deploy
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: AzureRmWebAppDeployment@4
+          inputs:
+            ConnectionType: 'AzureRM'
+            azureSubscription: 'Azure'
+            appType: 'webAppContainer'
+            WebAppName: 'spaceshop-webapp'
+            DockerNamespace: 'index.docker.io'
+            DockerRepository: 'provisioned/tenantchecker' #Change this to your repository name + project 
+            DockerImageTag: '$(Build.BuildId)'
